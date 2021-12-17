@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# 只检测已添加到暂存区待提交的 php 文件
+files=$(git diff --cached --name-only | grep -E '\.php$')
+if [[ $files = "" ]]; then
+    exit 0
+fi
+
+# 检测暂存区中的文件是否有变更
+isAddedFileChaned=1
+for file in $files; do
+    if [[ $(git diff $file) != "" ]]; then
+        echo "文件 $file 已发生变更，请先将变更文件添加到暂存区"
+        isAddedFileChaned=0
+    fi
+done
+if [[ $isAddedFileChaned != 1 ]]; then
+    exit 1
+fi
+
+echo '开始检测 PHP 代码:'
+echo $files
+
+./php-cs-fixer fix --config=.php-cs-fixer.php -v --dry-run --diff $files --ansi
+# 判断检测结果，非0表示失败
+code=$?
+
+if [[ $code != 0 ]]; then
+    echo -e "\n❌检测到代码格式问题，请参照提示检查并修正代码格式后重新提交！\nTips: 也可执行 ./php-cs-fixer fix --config=.php-cs-fixer.php -v --diff [path/to/file]... 自动修复"
+    exit $code
+fi
